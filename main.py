@@ -107,22 +107,21 @@ def find_reps(angles, fps, standing_thresh=140, min_gap_seconds=0.5):
 
 def process_video(video_path: str, output_path: str):
     """
-    Single read pass to extract landmarks, then a second pass to draw the
-    overlay. Tracks knee angle (depth/rep detection), hip angle (hip fold),
-    and torso lean (forward lean from vertical) together, all keyed to the
-    same trustworthy frames. Also tracks per-frame landmark visibility so we
-    can report how confident the tracking was for each rep.
+    Pass 1: read the video once to extract landmarks only (no frames kept in
+    memory). Pass 2: re-open the video from disk and stream frame-by-frame
+    into the overlay writer, so at most one frame is ever held in RAM at a
+    time. Tracks knee angle (depth/rep detection), hip angle (hip fold), and
+    torso lean (forward lean from vertical) together, all keyed to the same
+    trustworthy frames. Also tracks per-frame landmark visibility so we can
+    report how confident the tracking was for each rep.
     """
+    # ---------- Pass 1: landmarks only, no frames buffered ----------
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
     frame_landmarks = []
-    frames_buffer = []
 
     with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
         while cap.isOpened():
@@ -132,7 +131,7 @@ def process_video(video_path: str, output_path: str):
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(image)
             frame_landmarks.append(results.pose_landmarks.landmark if results.pose_landmarks else None)
-            frames_buffer.append(frame)
+            # frame is discarded here — never appended to a buffer
 
     cap.release()
 
@@ -142,7 +141,7 @@ def process_video(video_path: str, output_path: str):
     side = pick_best_side(frame_landmarks)
 
     raw_knee, raw_hip, raw_torso, raw_confidence = [], [], [], []
-    per_frame_knee = []  
+    per_frame_knee = []
 
     for landmarks in frame_landmarks:
         if landmarks is None:
@@ -195,10 +194,24 @@ def process_video(video_path: str, output_path: str):
     max_torso_lean = float(np.max(rep_torso_leans))
     avg_confidence = round(float(np.mean(rep_confidences)), 1)
 
-    for frame, landmarks, knee_angle in zip(frames_buffer, frame_landmarks, per_frame_knee):
+    # ---------- Pass 2: re-read from disk, stream overlay writes ----------
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    cap2 = cv2.VideoCapture(video_path)
+    frame_idx = 0
+    connections = mp_pose.POSE_CONNECTIONS
+
+    while cap2.isOpened():
+        ret, frame = cap2.read()
+        if not ret:
+            break
+
+        landmarks = frame_landmarks[frame_idx] if frame_idx < len(frame_landmarks) else None
+        knee_angle = per_frame_knee[frame_idx] if frame_idx < len(per_frame_knee) else None
+
         if landmarks is not None:
             h, w = frame.shape[:2]
-            connections = mp_pose.POSE_CONNECTIONS
             for start_idx, end_idx in connections:
                 start = landmarks[start_idx]
                 end = landmarks[end_idx]
@@ -216,7 +229,9 @@ def process_video(video_path: str, output_path: str):
                         cv2.FONT_HERSHEY_SIMPLEX, 0.85, (23, 61, 51), 2, cv2.LINE_AA)
 
         writer.write(frame)
+        frame_idx += 1
 
+    cap2.release()
     writer.release()
 
     stats = {
@@ -234,7 +249,6 @@ def process_video(video_path: str, output_path: str):
         "side_used": side,
     }
     return stats
-
 
 def get_coach_feedback(stats: dict) -> str:
     rep_list = ", ".join(f"{d}°" for d in stats["rep_depths"])
