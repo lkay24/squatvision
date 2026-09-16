@@ -1,0 +1,11 @@
+.env
+venv/
+__pycache__/
+*.pyc
+results/
+uploads/
+.DS_Store
+*.mp4
+output.txt
+analyze_squat.py
+form_check_coach.py

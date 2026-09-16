@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Form Check Coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F5F0;
+    --surface: #FFFFFF;
+    --ink: #16241D;
+    --ink-soft: #5B685F;
+    --forest: #1F3D33;
+    --forest-soft: #E8EEE9;
+    --clay: #C0723C;
+    --border: #E7E3D8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px 80px;
+  }
+
+  .phone { width: 100%; max-width: 420px; }
+
+  .brand { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+
+  .brand-mark {
+    width: 10px; height: 10px; border-radius: 3px;
+    background: var(--forest); transform: rotate(45deg);
+  }
+
+  h1 {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; margin: 0;
+  }
+
+  .sub {
+    color: var(--ink-soft); font-size: 0.92rem; line-height: 1.5;
+    margin: 8px 0 32px; max-width: 34ch;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+  }
+
+  #uploadCard .dz {
+    border: 1.5px dashed #D3CEC0;
+    border-radius: 14px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  #uploadCard .dz:hover,
+  #uploadCard .dz.drag-active { border-color: var(--forest); background: var(--forest-soft); }
+
+  .dz-icon { width: 40px; height: 40px; margin: 0 auto 14px; color: var(--forest); }
+  .dz-title { font-weight: 600; font-size: 0.98rem; }
+  .dz-hint { color: var(--ink-soft); font-size: 0.85rem; margin-top: 4px; }
+
+  .file-chip {
+    display: none; align-items: center; gap: 10px; margin-top: 16px;
+    padding: 10px 14px; background: var(--forest-soft); border-radius: 10px;
+    font-size: 0.88rem; color: var(--forest); font-weight: 500;
+  }
+
+  #previewVideo {
+    display: none; width: 100%; border-radius: 12px; margin-top: 16px;
+    max-height: 240px; background: #000;
+  }
+
+  button.primary {
+    width: 100%; margin-top: 18px; padding: 14px; border: none;
+    border-radius: 12px; background: var(--forest); color: white;
+    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.95rem;
+    cursor: pointer; transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+
+  button.primary:disabled { background: #C9C4B6; cursor: not-allowed; }
+  button.primary:not(:disabled):active { transform: scale(0.98); }
+
+  #loadingCard { display: none; text-align: center; padding: 48px 28px; }
+
+  .pulse-ring {
+    width: 56px; height: 56px; margin: 0 auto 20px; border-radius: 50%;
+    border: 3px solid var(--forest-soft); border-top-color: var(--forest);
+    animation: spin 0.9s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #loadingCard p { color: var(--ink-soft); font-size: 0.9rem; margin: 0; }
+
+  .progress-track {
+    width: 100%; height: 6px; border-radius: 100px; background: var(--forest-soft);
+    margin: 18px 0 14px; overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%; width: 0%; background: var(--forest); border-radius: 100px;
+    transition: width 0.15s ease;
+  }
+
+  #loadingCard .stage-label {
+    font-size: 0.78rem; color: var(--ink-soft); font-weight: 500; margin-top: 4px;
+  }
+
+  #errorCard { display: none; border-color: #E8C4B0; background: #FBF2EC; }
+  #errorCard .err-title { font-weight: 600; color: var(--clay); margin-bottom: 4px; }
+  #errorCard .err-body { color: var(--ink-soft); font-size: 0.88rem; line-height: 1.5; }
+
+  #resultCard { display: none; }
+
+  .gauge-wrap { display: flex; justify-content: center; padding: 8px 0 4px; }
+  .gauge-readout { text-align: center; margin-top: -8px; }
+
+  .gauge-number {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 2.6rem; font-weight: 700; letter-spacing: -0.02em;
+  }
+
+  .gauge-label { color: var(--ink-soft); font-size: 0.82rem; margin-top: -4px; }
+
+  .zone-tag {
+    display: inline-block; margin-top: 10px; padding: 5px 12px;
+    border-radius: 100px; font-size: 0.78rem; font-weight: 600;
+  }
+
+  .confidence-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 10px; margin-left: 6px; padding: 5px 12px;
+    border-radius: 100px; font-size: 0.78rem; font-weight: 600;
+  }
+
+  .confidence-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+
+  .tag-row { text-align: center; }
+
+  .stat-row {
+    display: flex; justify-content: space-between; padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .stat-row:first-of-type { margin-top: 20px; }
+  .stat-label { color: var(--ink-soft); font-size: 0.86rem; }
+  .stat-value { font-weight: 600; font-size: 0.9rem; }
+
+  .section-label {
+    font-size: 0.78rem; font-weight: 600; color: var(--forest);
+    margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);
+  }
+
+  .feedback-block { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .feedback-label { font-size: 0.78rem; font-weight: 600; color: var(--forest); margin-bottom: 8px; }
+  .feedback-text { font-size: 0.92rem; line-height: 1.6; color: var(--ink); }
+
+  .rep-chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .rep-chip {
+    padding: 6px 12px; background: #F7F5F0; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 0.8rem; font-weight: 500;
+  }
+
+  .rep-chip .chip-conf {
+    display: block; font-size: 0.68rem; font-weight: 500; margin-top: 1px;
+  }
+
+  .again-btn {
+    width: 100%; margin-top: 20px; padding: 13px; border: 1px solid var(--border);
+    border-radius: 12px; background: transparent; color: var(--ink);
+    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.9rem; cursor: pointer;
+  }
+
+  .again-btn:hover { background: var(--forest-soft); }
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <div class="brand">
+    <div class="brand-mark"></div>
+    <h1>Form Check</h1>
+  </div>
+  <p class="sub">Upload a side-view squat set. We measure your real joint angles from the video, then a coach reads the numbers.</p>
+
+  <div class="card" id="uploadCard">
+    <div class="dz" id="dropzone">
+      <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="dz-title">Choose squat video</div>
+      <div class="dz-hint">Side view, full body in frame</div>
+      <input type="file" id="fileInput" accept="video/*" style="display:none">
+    </div>
+    <div class="file-chip" id="fileChip"></div>
+    <video id="previewVideo" controls muted playsinline></video>
+    <button class="primary" id="analyzeBtn" disabled>Analyze squat</button>
+  </div>
+
+  <div class="card" id="loadingCard">
+    <div class="pulse-ring" id="pulseRing" style="display:none;"></div>
+    <div class="progress-track" id="progressTrack">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <p id="loadingText">Uploading video…</p>
+    <div class="stage-label" id="stageLabel">0%</div>
+  </div>
+
+  <div class="card" id="errorCard">
+    <div class="err-title">Couldn't read that video</div>
+    <div class="err-body" id="errorText"></div>
+  </div>
+
+  <div class="card" id="resultCard">
+    <video id="overlayVideo" controls style="width:100%; border-radius:14px; margin-bottom:20px; display:none;"></video>
+
+    <div class="gauge-wrap">
+      <svg width="200" height="120" viewBox="0 0 200 120" id="gaugeSvg">
+        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#EEEAE0" stroke-width="14" stroke-linecap="round"/>
+        <path id="gaugeArc" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1F3D33" stroke-width="14" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3"/>
+        <circle id="gaugeNeedle" cx="100" cy="100" r="5" fill="#16241D"/>
+      </svg>
+    </div>
+    <div class="gauge-readout">
+      <div class="gauge-number" id="deepestDisplay">—°</div>
+      <div class="gauge-label">deepest knee angle</div>
+      <div class="tag-row">
+        <div class="zone-tag" id="zoneTag"></div><div class="confidence-tag" id="confidenceTag" style="display:none;"><span class="confidence-dot" id="confidenceDot"></span><span id="confidenceTagText"></span></div>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-label">Standing angle</div>
+      <div class="stat-value" id="standingVal">—°</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-label">Average bottom depth</div>
+      <div class="stat-value" id="avgVal">—°</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-label">Average hip angle</div>
+      <div class="stat-value" id="hipVal">—°</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-label">Max torso lean</div>
+      <div class="stat-value" id="torsoVal">—°</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-label">Tracking confidence</div>
+      <div class="stat-value" id="confidenceVal">—%</div>
+    </div>
+
+    <div class="feedback-block" id="repsBlock" style="display:none;">
+      <div class="feedback-label">Per-rep breakdown</div>
+      <div>
+        <div class="stat-label" style="font-size:0.78rem;">Knee depth <span style="opacity:0.7;">(with tracking confidence)</span></div>
+        <div class="rep-chip-row" id="repsListKnee"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="stat-label" style="font-size:0.78rem;">Hip angle</div>
+        <div class="rep-chip-row" id="repsListHip"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="stat-label" style="font-size:0.78rem;">Torso lean</div>
+        <div class="rep-chip-row" id="repsListTorso"></div>
+      </div>
+    </div>
+
+    <div class="feedback-block">
+      <div class="feedback-label">Coach feedback</div>
+      <div class="feedback-text" id="feedbackText"></div>
+    </div>
+
+    <button class="again-btn" id="againBtn">Analyze another set</button>
+  </div>
+
+</div>
+
+<script>
+const API_URL = "http://127.0.0.1:8000/analyze";
+let selectedFile = null;
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileChip = document.getElementById('fileChip');
+const analyzeBtn = document.getElementById('analyzeBtn');
+
+dropzone.addEventListener('click', () => fileInput.click());
+
+let previewObjectUrl = null;
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('video/')) return;
+  selectedFile = file;
+  fileChip.textContent = "📹 " + selectedFile.name;
+  fileChip.style.display = 'flex';
+  analyzeBtn.disabled = false;
+
+  if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+  previewObjectUrl = URL.createObjectURL(file);
+  const preview = document.getElementById('previewVideo');
+  preview.src = previewObjectUrl;
+  preview.style.display = 'block';
+}
+
+fileInput.addEventListener('change', (e) => {
+  handleFile(e.target.files[0]);
+});
+
+['dragenter', 'dragover'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropzone.classList.add('drag-active');
+  });
+});
+
+['dragleave', 'drop'].forEach(evt => {
+  dropzone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropzone.classList.remove('drag-active');
+  });
+});
+
+dropzone.addEventListener('drop', (e) => {
+  const file = e.dataTransfer.files[0];
+  handleFile(file);
+});
+
+function showOnly(id) {
+  ['uploadCard', 'loadingCard', 'errorCard', 'resultCard'].forEach(cardId => {
+    document.getElementById(cardId).style.display = (cardId === id) ? 'block' : 'none';
+  });
+}
+
+function setGauge(deepestAngle) {
+  const maxLen = 251.3;
+  const pct = Math.max(0, Math.min(1, (180 - deepestAngle) / 180));
+  const offset = maxLen - (pct * maxLen);
+  document.getElementById('gaugeArc').style.strokeDashoffset = offset;
+
+  const angleRad = Math.PI - (pct * Math.PI);
+  const cx = 100 + 80 * Math.cos(angleRad);
+  const cy = 100 - 80 * Math.sin(angleRad);
+  document.getElementById('gaugeNeedle').setAttribute('cx', cx);
+  document.getElementById('gaugeNeedle').setAttribute('cy', cy);
+
+  let zoneLabel, zoneColor, zoneBg;
+  if (deepestAngle > 100) {
+    zoneLabel = "Shallow"; zoneColor = "#C0723C"; zoneBg = "#FBF2EC";
+  } else if (deepestAngle >= 60) {
+    zoneLabel = "Solid depth"; zoneColor = "#1F3D33"; zoneBg = "#E8EEE9";
+  } else {
+    zoneLabel = "Very deep"; zoneColor = "#8A6BB0"; zoneBg = "#F1ECF7";
+  }
+  const tag = document.getElementById('zoneTag');
+  tag.textContent = zoneLabel;
+  tag.style.color = zoneColor;
+  tag.style.background = zoneBg;
+  document.getElementById('gaugeArc').style.stroke = zoneColor;
+}
+
+function confidenceStyle(pct) {
+  // Returns {label, color, bg} for a 0-100 confidence value.
+  if (pct >= 90) return { label: "High confidence", color: "#1F3D33", bg: "#E8EEE9" };
+  if (pct >= 75) return { label: "Medium confidence", color: "#C0723C", bg: "#FBF2EC" };
+  return { label: "Low confidence", color: "#B0473C", bg: "#FBEAE7" };
+}
+
+function setConfidenceTag(pct) {
+  const { label, color, bg } = confidenceStyle(pct);
+  const tag = document.getElementById('confidenceTag');
+  document.getElementById('confidenceTagText').textContent = `${label} · ${pct}%`;
+  document.getElementById('confidenceDot').style.background = color;
+  tag.style.color = color;
+  tag.style.background = bg;
+  tag.style.display = 'inline-flex';
+}
+
+function fillRepChips(containerId, values, unit) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  values.forEach((v, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'rep-chip';
+    chip.textContent = `#${i + 1}: ${v}${unit}`;
+    container.appendChild(chip);
+  });
+}
+
+function fillKneeChipsWithConfidence(depths, confidences) {
+  const container = document.getElementById('repsListKnee');
+  container.innerHTML = '';
+  depths.forEach((v, i) => {
+    const conf = confidences && confidences[i] !== undefined ? confidences[i] : null;
+    const chip = document.createElement('div');
+    chip.className = 'rep-chip';
+    const main = document.createElement('span');
+    main.textContent = `#${i + 1}: ${v}°`;
+    chip.appendChild(main);
+    if (conf !== null) {
+      const { color } = confidenceStyle(conf);
+      const confSpan = document.createElement('span');
+      confSpan.className = 'chip-conf';
+      confSpan.style.color = color;
+      confSpan.textContent = `${conf}% confident`;
+      chip.appendChild(confSpan);
+    }
+    container.appendChild(chip);
+  });
+}
+
+function resetLoadingUI() {
+  document.getElementById('pulseRing').style.display = 'none';
+  document.getElementById('progressTrack').style.display = 'block';
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('loadingText').textContent = 'Uploading video…';
+  document.getElementById('stageLabel').textContent = '0%';
+}
+
+function switchToProcessingStage() {
+  document.getElementById('progressTrack').style.display = 'none';
+  document.getElementById('pulseRing').style.display = 'block';
+  document.getElementById('loadingText').textContent = 'Reading joint positions frame by frame…';
+  document.getElementById('stageLabel').textContent = 'This can take a bit longer for longer videos';
+}
+
+function renderResult(data) {
+  document.getElementById('deepestDisplay').textContent = data.stats.deepest_angle + "°";
+  document.getElementById('standingVal').textContent = data.stats.standing_angle + "°";
+  document.getElementById('avgVal').textContent = data.stats.avg_bottom_depth + "°";
+  document.getElementById('hipVal').textContent = data.stats.avg_hip_angle + "°";
+  document.getElementById('torsoVal').textContent = data.stats.max_torso_lean + "°";
+  document.getElementById('feedbackText').textContent = data.feedback;
+  setGauge(data.stats.deepest_angle);
+
+  if (data.stats.avg_confidence !== undefined) {
+    document.getElementById('confidenceVal').textContent = data.stats.avg_confidence + "%";
+    setConfidenceTag(data.stats.avg_confidence);
+  }
+
+  if (data.overlay_video_url) {
+    const vid = document.getElementById('overlayVideo');
+    vid.src = data.overlay_video_url;
+    vid.style.display = 'block';
+  }
+
+  if (data.stats.rep_depths && data.stats.rep_depths.length > 0) {
+    fillKneeChipsWithConfidence(data.stats.rep_depths, data.stats.rep_confidences);
+    fillRepChips('repsListHip', data.stats.rep_hip_angles, "°");
+    fillRepChips('repsListTorso', data.stats.rep_torso_leans, "°");
+    document.getElementById('repsBlock').style.display = 'block';
+  }
+
+  showOnly('resultCard');
+}
+
+analyzeBtn.addEventListener('click', () => {
+  if (!selectedFile) return;
+  resetLoadingUI();
+  showOnly('loadingCard');
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', API_URL);
+
+  xhr.upload.addEventListener('progress', (e) => {
+    if (!e.lengthComputable) return;
+    const pct = Math.round((e.loaded / e.total) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('stageLabel').textContent = pct + '%';
+    if (pct >= 100) switchToProcessingStage();
+  });
+
+  xhr.onload = () => {
+    let data;
+    try {
+      data = JSON.parse(xhr.responseText);
+    } catch (e) {
+      document.getElementById('errorText').textContent = "Unexpected response from the server.";
+      showOnly('errorCard');
+      return;
+    }
+
+    if (data.success) {
+      renderResult(data);
+    } else {
+      document.getElementById('errorText').textContent = data.error;
+      showOnly('errorCard');
+    }
+  };
+
+  xhr.onerror = () => {
+    document.getElementById('errorText').textContent = "Could not reach the server. Make sure the backend is running.";
+    showOnly('errorCard');
+  };
+
+  xhr.send(formData);
+});
+
+document.getElementById('againBtn').addEventListener('click', () => {
+  selectedFile = null;
+  fileInput.value = '';
+  fileChip.style.display = 'none';
+  analyzeBtn.disabled = true;
+  const preview = document.getElementById('previewVideo');
+  preview.style.display = 'none';
+  preview.removeAttribute('src');
+  preview.load();
+  if (previewObjectUrl) {
+    URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = null;
+  }
+  showOnly('uploadCard');
+});
+</script>
+
+</body>
+</html>
