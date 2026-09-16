@@ -55,14 +55,21 @@ Before building any of the pipeline, I validated MediaPipe's readings against my
 
 ## Running it
 
-```
+**Live demo:** [https://lkay24.github.io/squatvision/](https://lkay24.github.io/squatvision/)
+(backend hosted on Render, may take 30-60s to wake up on first request if idle)
+
+**Or run it locally:**
+
+```bash
 # backend
+cd backend
 uvicorn main:app --reload
 
 # then open index.html (e.g. via VS Code's Live Server)
 ```
 
 You'll need a Gemini API key in a `.env` file:
+
 ```
 GEMINI_API_KEY=your_key_here
 ```
