@@ -13,7 +13,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-# --- Setup ---
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
@@ -37,8 +36,7 @@ RESULTS_DIR = "results"
 os.makedirs(RESULTS_DIR, exist_ok=True)
 app.mount("/results", StaticFiles(directory=RESULTS_DIR), name="results")
 
-VISIBILITY_THRESHOLD = 0.6  # MediaPipe confidence a landmark is actually where it says
-
+VISIBILITY_THRESHOLD = 0.6  
 
 def calculate_angle(a, b, c):
     """Angle at point b, formed by rays b->a and b->c."""
@@ -144,7 +142,7 @@ def process_video(video_path: str, output_path: str):
     side = pick_best_side(frame_landmarks)
 
     raw_knee, raw_hip, raw_torso, raw_confidence = [], [], [], []
-    per_frame_knee = []  # aligned with frames_buffer, for overlay text
+    per_frame_knee = []  
 
     for landmarks in frame_landmarks:
         if landmarks is None:
@@ -158,7 +156,6 @@ def process_video(video_path: str, output_path: str):
 
         knee_angle = calculate_angle([hip.x, hip.y], [knee.x, knee.y], [ankle.x, ankle.y])
         hip_angle = calculate_angle([shoulder.x, shoulder.y], [hip.x, hip.y], [knee.x, knee.y])
-        # torso lean: angle between hip->shoulder and straight-up-from-hip. 0 = upright.
         vertical_ref = [hip.x, hip.y - 0.3]
         torso_lean = calculate_angle([shoulder.x, shoulder.y], [hip.x, hip.y], vertical_ref)
 
@@ -198,7 +195,6 @@ def process_video(video_path: str, output_path: str):
     max_torso_lean = float(np.max(rep_torso_leans))
     avg_confidence = round(float(np.mean(rep_confidences)), 1)
 
-    # --- Second pass: draw skeleton + angle readouts onto each frame ---
     for frame, landmarks, knee_angle in zip(frames_buffer, frame_landmarks, per_frame_knee):
         if landmarks is not None:
             h, w = frame.shape[:2]
