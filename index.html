@@ -296,7 +296,7 @@
 </div>
 
 <script>
-const API_URL = "https://squatvision.onrender.com";
+const API_URL = "http://127.0.0.1:8000";
 let selectedFile = null;
 
 const dropzone = document.getElementById('dropzone');
@@ -484,7 +484,7 @@ analyzeBtn.addEventListener('click', () => {
   formData.append('file', selectedFile);
 
   const xhr = new XMLHttpRequest();
-  xhr.open('POST', API_URL);
+  xhr.open('POST', `${API_URL}/analyze`);
 
   xhr.upload.addEventListener('progress', (e) => {
     if (!e.lengthComputable) return;
