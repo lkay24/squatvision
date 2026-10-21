@@ -72,6 +72,13 @@
 
   .dz-icon { width: 40px; height: 40px; margin: 0 auto 14px; color: var(--forest); }
   .dz-title { font-weight: 600; font-size: 0.98rem; }
+  .exercise-picker { display: flex; gap: 8px; margin-bottom: 16px; }
+  .exercise-btn {
+    flex: 1; padding: 10px 6px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--ink-soft); font: inherit; font-weight: 500; font-size: 0.9rem; cursor: pointer;
+  }
+  .exercise-btn.active { background: var(--forest); border-color: var(--forest); color: #fff; }
   .dz-hint { color: var(--ink-soft); font-size: 0.85rem; margin-top: 4px; }
 
   .file-chip {
@@ -199,16 +206,21 @@
     <div class="brand-mark"></div>
     <h1>Form Check</h1>
   </div>
-  <p class="sub">Upload a side-view squat set. We measure your real joint angles from the video, then a coach reads the numbers.</p>
+  <p class="sub">Upload a side-view set of squats, deadlifts or push-ups. We measure your real joint angles from the video, then a coach reads the numbers.</p>
 
   <div class="card" id="uploadCard">
+    <div class="exercise-picker" id="exercisePicker">
+      <button type="button" class="exercise-btn active" data-exercise="squat">Squat</button>
+      <button type="button" class="exercise-btn" data-exercise="deadlift">Deadlift</button>
+      <button type="button" class="exercise-btn" data-exercise="pushup">Push-up</button>
+    </div>
     <div class="dz" id="dropzone">
       <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
         <path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <div class="dz-title">Choose squat video</div>
-      <div class="dz-hint">Side view, full body in frame</div>
+      <div class="dz-title" id="dzTitle">Choose squat video</div>
+      <div class="dz-hint" id="dzHint">Side view, full body in frame</div>
       <input type="file" id="fileInput" accept="video/*" style="display:none">
     </div>
     <div class="file-chip" id="fileChip"></div>
@@ -242,28 +254,13 @@
     </div>
     <div class="gauge-readout">
       <div class="gauge-number" id="deepestDisplay">—°</div>
-      <div class="gauge-label">deepest knee angle</div>
+      <div class="gauge-label" id="gaugeLabel">deepest knee angle</div>
       <div class="tag-row">
         <div class="zone-tag" id="zoneTag"></div><div class="confidence-tag" id="confidenceTag" style="display:none;"><span class="confidence-dot" id="confidenceDot"></span><span id="confidenceTagText"></span></div>
       </div>
     </div>
 
-    <div class="stat-row">
-      <div class="stat-label">Standing angle</div>
-      <div class="stat-value" id="standingVal">—°</div>
-    </div>
-    <div class="stat-row">
-      <div class="stat-label">Average bottom depth</div>
-      <div class="stat-value" id="avgVal">—°</div>
-    </div>
-    <div class="stat-row">
-      <div class="stat-label">Average hip angle</div>
-      <div class="stat-value" id="hipVal">—°</div>
-    </div>
-    <div class="stat-row">
-      <div class="stat-label">Max torso lean</div>
-      <div class="stat-value" id="torsoVal">—°</div>
-    </div>
+    <div id="statRows"></div>
     <div class="stat-row">
       <div class="stat-label">Tracking confidence</div>
       <div class="stat-value" id="confidenceVal">—%</div>
@@ -271,18 +268,7 @@
 
     <div class="feedback-block" id="repsBlock" style="display:none;">
       <div class="feedback-label">Per-rep breakdown</div>
-      <div>
-        <div class="stat-label" style="font-size:0.78rem;">Knee depth <span style="opacity:0.7;">(with tracking confidence)</span></div>
-        <div class="rep-chip-row" id="repsListKnee"></div>
-      </div>
-      <div style="margin-top:12px;">
-        <div class="stat-label" style="font-size:0.78rem;">Hip angle</div>
-        <div class="rep-chip-row" id="repsListHip"></div>
-      </div>
-      <div style="margin-top:12px;">
-        <div class="stat-label" style="font-size:0.78rem;">Torso lean</div>
-        <div class="rep-chip-row" id="repsListTorso"></div>
-      </div>
+      <div id="repGroups"></div>
     </div>
 
     <div class="feedback-block">
@@ -298,6 +284,51 @@
 <script>
 const API_URL = "https://squatvision.onrender.com";
 let selectedFile = null;
+let selectedExercise = 'squat';
+
+const squatZones = (a) => a > 100 ? ["Shallow", "#C0723C", "#FBF2EC"]
+  : a >= 60 ? ["Solid depth", "#1F3D33", "#E8EEE9"]
+  : ["Very deep", "#8A6BB0", "#F1ECF7"];
+
+// Per-exercise display config. Keys refer to fields in the backend's `stats`.
+const EXERCISES = {
+  squat: {
+    title: "squat", hint: "Side view, full body in frame",
+    headline: "deepest_angle", headlineLabel: "deepest knee angle", fill: "low", zones: squatZones,
+    rows: [["Standing angle", "standing_angle", "°"], ["Average bottom depth", "avg_bottom_depth", "°"],
+           ["Average hip angle", "avg_hip_angle", "°"], ["Max torso lean", "max_torso_lean", "°"]],
+    groups: [["Knee depth", "rep_depths", "°", true], ["Hip angle", "rep_hip_angles", "°"],
+             ["Torso lean", "rep_torso_leans", "°"]],
+  },
+  deadlift: {
+    title: "deadlift", hint: "Side view, full body and bar path in frame",
+    headline: "avg_lockout_hip", headlineLabel: "avg lockout hip angle", fill: "high",
+    zones: (a) => a >= 165 ? ["Full lockout", "#1F3D33", "#E8EEE9"]
+      : a >= 150 ? ["Incomplete lockout", "#C0723C", "#FBF2EC"]
+      : ["Soft lockout", "#B0473C", "#FBEAE7"],
+    rows: [["Lowest lockout", "min_lockout_hip", "°"], ["Average setup hip angle", "avg_bottom_hip", "°"],
+           ["Average setup knee angle", "avg_bottom_knee", "°"], ["Average setup torso lean", "avg_bottom_torso", "°"]],
+    groups: [["Lockout hip angle", "rep_lockout_hips", "°", true], ["Setup hip angle", "rep_bottom_hips", "°"],
+             ["Setup knee angle", "rep_bottom_knees", "°"], ["Setup torso lean", "rep_bottom_torso", "°"]],
+  },
+  pushup: {
+    title: "push-up", hint: "Side view, full body in frame, camera at body height",
+    headline: "deepest_angle", headlineLabel: "deepest elbow angle", fill: "low",
+    zones: (a) => a > 110 ? ["Partial range", "#C0723C", "#FBF2EC"] : ["Full range", "#1F3D33", "#E8EEE9"],
+    rows: [["Top elbow angle", "standing_angle", "°"], ["Average bottom elbow angle", "avg_bottom_depth", "°"],
+           ["Average body line", "avg_body_line", "°"], ["Largest hip sag (+) / pike (−)", "worst_hip_dev", "%"]],
+    groups: [["Elbow angle", "rep_depths", "°", true], ["Body line", "rep_body_lines", "°"],
+             ["Hip sag (+) / pike (−)", "rep_hip_devs", "%"]],
+  },
+};
+
+function selectExercise(name) {
+  selectedExercise = name;
+  document.querySelectorAll('.exercise-btn').forEach(b => b.classList.toggle('active', b.dataset.exercise === name));
+  document.getElementById('dzTitle').textContent = `Choose ${EXERCISES[name].title} video`;
+  document.getElementById('dzHint').textContent = EXERCISES[name].hint;
+  analyzeBtn.textContent = `Analyze ${EXERCISES[name].title}`;
+}
 
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
@@ -305,6 +336,7 @@ const fileChip = document.getElementById('fileChip');
 const analyzeBtn = document.getElementById('analyzeBtn');
 
 dropzone.addEventListener('click', () => fileInput.click());
+document.querySelectorAll('.exercise-btn').forEach(b => b.addEventListener('click', () => selectExercise(b.dataset.exercise)));
 
 let previewObjectUrl = null;
 
@@ -353,9 +385,9 @@ function showOnly(id) {
   });
 }
 
-function setGauge(deepestAngle) {
+function setGauge(angle, cfg) {
   const maxLen = 251.3;
-  const pct = Math.max(0, Math.min(1, (180 - deepestAngle) / 180));
+  const pct = Math.max(0, Math.min(1, cfg.fill === 'high' ? angle / 180 : (180 - angle) / 180));
   const offset = maxLen - (pct * maxLen);
   document.getElementById('gaugeArc').style.strokeDashoffset = offset;
 
@@ -365,14 +397,7 @@ function setGauge(deepestAngle) {
   document.getElementById('gaugeNeedle').setAttribute('cx', cx);
   document.getElementById('gaugeNeedle').setAttribute('cy', cy);
 
-  let zoneLabel, zoneColor, zoneBg;
-  if (deepestAngle > 100) {
-    zoneLabel = "Shallow"; zoneColor = "#C0723C"; zoneBg = "#FBF2EC";
-  } else if (deepestAngle >= 60) {
-    zoneLabel = "Solid depth"; zoneColor = "#1F3D33"; zoneBg = "#E8EEE9";
-  } else {
-    zoneLabel = "Very deep"; zoneColor = "#8A6BB0"; zoneBg = "#F1ECF7";
-  }
+  const [zoneLabel, zoneColor, zoneBg] = cfg.zones(angle);
   const tag = document.getElementById('zoneTag');
   tag.textContent = zoneLabel;
   tag.style.color = zoneColor;
@@ -397,8 +422,7 @@ function setConfidenceTag(pct) {
   tag.style.display = 'inline-flex';
 }
 
-function fillRepChips(containerId, values, unit) {
-  const container = document.getElementById(containerId);
+function fillRepChips(container, values, unit) {
   container.innerHTML = '';
   values.forEach((v, i) => {
     const chip = document.createElement('div');
@@ -408,15 +432,14 @@ function fillRepChips(containerId, values, unit) {
   });
 }
 
-function fillKneeChipsWithConfidence(depths, confidences) {
-  const container = document.getElementById('repsListKnee');
+function fillChipsWithConfidence(container, depths, confidences, unit) {
   container.innerHTML = '';
   depths.forEach((v, i) => {
     const conf = confidences && confidences[i] !== undefined ? confidences[i] : null;
     const chip = document.createElement('div');
     chip.className = 'rep-chip';
     const main = document.createElement('span');
-    main.textContent = `#${i + 1}: ${v}°`;
+    main.textContent = `#${i + 1}: ${v}${unit}`;
     chip.appendChild(main);
     if (conf !== null) {
       const { color } = confidenceStyle(conf);
@@ -446,17 +469,32 @@ function switchToProcessingStage() {
 }
 
 function renderResult(data) {
-  document.getElementById('deepestDisplay').textContent = data.stats.deepest_angle + "°";
-  document.getElementById('standingVal').textContent = data.stats.standing_angle + "°";
-  document.getElementById('avgVal').textContent = data.stats.avg_bottom_depth + "°";
-  document.getElementById('hipVal').textContent = data.stats.avg_hip_angle + "°";
-  document.getElementById('torsoVal').textContent = data.stats.max_torso_lean + "°";
-  document.getElementById('feedbackText').textContent = data.feedback;
-  setGauge(data.stats.deepest_angle);
+  const stats = data.stats;
+  const cfg = EXERCISES[stats.exercise] || EXERCISES.squat;
 
-  if (data.stats.avg_confidence !== undefined) {
-    document.getElementById('confidenceVal').textContent = data.stats.avg_confidence + "%";
-    setConfidenceTag(data.stats.avg_confidence);
+  document.getElementById('deepestDisplay').textContent = stats[cfg.headline] + "°";
+  document.getElementById('gaugeLabel').textContent = cfg.headlineLabel;
+  document.getElementById('feedbackText').textContent = data.feedback;
+  setGauge(stats[cfg.headline], cfg);
+
+  const rowsEl = document.getElementById('statRows');
+  rowsEl.innerHTML = '';
+  cfg.rows.forEach(([label, key, unit]) => {
+    const row = document.createElement('div');
+    row.className = 'stat-row';
+    const l = document.createElement('div');
+    l.className = 'stat-label';
+    l.textContent = label;
+    const v = document.createElement('div');
+    v.className = 'stat-value';
+    v.textContent = stats[key] + unit;
+    row.append(l, v);
+    rowsEl.appendChild(row);
+  });
+
+  if (stats.avg_confidence !== undefined) {
+    document.getElementById('confidenceVal').textContent = stats.avg_confidence + "%";
+    setConfidenceTag(stats.avg_confidence);
   }
 
   if (data.overlay_video_url) {
@@ -465,10 +503,29 @@ function renderResult(data) {
     vid.style.display = 'block';
   }
 
-  if (data.stats.rep_depths && data.stats.rep_depths.length > 0) {
-    fillKneeChipsWithConfidence(data.stats.rep_depths, data.stats.rep_confidences);
-    fillRepChips('repsListHip', data.stats.rep_hip_angles, "°");
-    fillRepChips('repsListTorso', data.stats.rep_torso_leans, "°");
+  const groupsEl = document.getElementById('repGroups');
+  groupsEl.innerHTML = '';
+  if (stats.rep_count > 0) {
+    cfg.groups.forEach(([label, key, unit, withConf], idx) => {
+      const wrap = document.createElement('div');
+      if (idx > 0) wrap.style.marginTop = '12px';
+      const l = document.createElement('div');
+      l.className = 'stat-label';
+      l.style.fontSize = '0.78rem';
+      l.textContent = label;
+      if (withConf) {
+        const note = document.createElement('span');
+        note.style.opacity = '0.7';
+        note.textContent = ' (with tracking confidence)';
+        l.appendChild(note);
+      }
+      const chips = document.createElement('div');
+      chips.className = 'rep-chip-row';
+      if (withConf) fillChipsWithConfidence(chips, stats[key], stats.rep_confidences, unit);
+      else fillRepChips(chips, stats[key], unit);
+      wrap.append(l, chips);
+      groupsEl.appendChild(wrap);
+    });
     document.getElementById('repsBlock').style.display = 'block';
   }
 
@@ -482,6 +539,7 @@ analyzeBtn.addEventListener('click', () => {
 
   const formData = new FormData();
   formData.append('file', selectedFile);
+  formData.append('exercise', selectedExercise);
 
   const xhr = new XMLHttpRequest();
   xhr.open('POST', `${API_URL}/analyze`);

@@ -1,6 +1,6 @@
 # Form Check Coach
 
-Give it a video of you squatting, it tells you what's actually wrong with your form — not a generic tip, an explanation grounded in the real angles from your video.
+Give it a video of you squatting, deadlifting or doing push-ups, it tells you what's actually wrong with your form — not a generic tip, an explanation grounded in the real angles from your video.
 
 I lift, so I'm not building this blind — I know what a squat is actually supposed to look like, which means I can tell the difference between feedback that's genuinely correct and feedback that just sounds plausible. That mattered more than expected: it's easy for an LLM to hand back something that reads like real coaching but is subtly off, and the only way to catch that is to already know the answer before you ask the question.
 
@@ -45,7 +45,7 @@ Before building any of the pipeline, I validated MediaPipe's readings against my
 ## What this can't do
 
 - Needs a clean side-view, full body in frame — no front-view or angled-camera support
-- Squat only for now — no support for other lifts
+- Supports squat, deadlift and push-up (side view each). Deadlift tracking measures the shoulder–hip line only, so it can't judge spinal rounding; push-up hip sag/pike is measured from the shoulder–ankle line
 - Sensitive to occlusion and framing: if a joint drifts out of frame or gets briefly blocked (arms crossing the torso, standing too close to the frame edge), tracking confidence drops for that rep and the reading gets flagged or filtered rather than trusted blindly
 
 ## How it's built
@@ -65,6 +65,7 @@ Before building any of the pipeline, I validated MediaPipe's readings against my
 cd backend
 uvicorn main:app --reload
 
+# (main.py and exercises.py live in the repo root)
 # then open index.html (e.g. via VS Code's Live Server)
 ```
 
